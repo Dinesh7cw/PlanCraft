@@ -43,10 +43,8 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Install dependencies + PM2
-        run: |
-          npm ci
-          npm install pm2 --save-dev
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build (standalone mode)
         run: npm run build
@@ -62,12 +60,42 @@ jobs:
           cp -r .next/static deploy_pkg/.next/static
           cp -r public deploy_pkg/public
 
-          # PM2 binary (copy from node_modules to server)
-          mkdir -p deploy_pkg/pm2_bin
-          cp -r node_modules/pm2 deploy_pkg/pm2_bin/pm2
-
           # .env.local
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > deploy_pkg/.env.local
+
+          # Startup script (nohup-based — no PM2 needed)
+          cat > deploy_pkg/start.sh << 'STARTSCRIPT'
+#!/bin/bash
+DEPLOY_DIR="$(cd "$(dirname "$0")" && pwd)"
+LOG="$HOME/plancraft.log"
+PID_FILE="$HOME/plancraft.pid"
+
+# Kill existing process
+if [ -f "$PID_FILE" ]; then
+  OLD_PID=$(cat "$PID_FILE")
+  kill "$OLD_PID" 2>/dev/null && echo "Stopped old process $OLD_PID" || true
+  rm -f "$PID_FILE"
+fi
+
+# Also kill any orphaned node server.js
+pkill -f "node server.js" 2>/dev/null || true
+sleep 1
+
+# Start fresh
+cd "$DEPLOY_DIR"
+PORT=3000 nohup node server.js > "$LOG" 2>&1 &
+echo $! > "$PID_FILE"
+sleep 2
+
+if kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+  echo "✅ PlanCraft running on port 3000 (PID: $(cat $PID_FILE))"
+else
+  echo "❌ Failed to start. Last 20 lines of log:"
+  tail -20 "$LOG"
+  exit 1
+fi
+STARTSCRIPT
+          chmod +x deploy_pkg/start.sh
 
       - name: Setup SSH
         run: |
@@ -85,38 +113,12 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             deploy_pkg/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${DEPLOY_DIR}/ || true
 
-      - name: Start / Restart with PM2
+      - name: Start app via nohup
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash << 'ENDSSH'
               set -e
               DEPLOY_DIR="$HOME/htdocs/cwprdgen.agentwhistle.cloud"
-              PM2="$DEPLOY_DIR/pm2_bin/pm2/bin/pm2"
-
-              echo "=== Node.js version ==="
-              node --version || { echo "❌ node not found in PATH"; which node || true; exit 1; }
-
-              echo "=== Files in deploy dir ==="
-              ls "$DEPLOY_DIR"
-
-              echo "=== server.js exists? ==="
-              test -f "$DEPLOY_DIR/server.js" && echo "✅ server.js found" || { echo "❌ server.js NOT found"; exit 1; }
-
-              echo "=== PM2 binary exists? ==="
-              test -f "$PM2" && echo "✅ PM2 binary found" || { echo "❌ PM2 binary NOT found"; exit 1; }
-
-              cd "$DEPLOY_DIR"
-
-              if $PM2 describe plancraft > /dev/null 2>&1; then
-                echo "Restarting existing PM2 process..."
-                $PM2 restart plancraft
-              else
-                echo "Starting new PM2 process on port 3000..."
-                PORT=3000 $PM2 start server.js --name plancraft
-              fi
-
-              $PM2 save
-              echo "=== PM2 process list ==="
-              $PM2 list
-              echo "✅ Deploy complete — app running on port 3000"
+              echo "Node: $(node --version)"
+              bash "$DEPLOY_DIR/start.sh"
           ENDSSH
