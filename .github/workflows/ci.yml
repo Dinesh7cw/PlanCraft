@@ -87,20 +87,36 @@ jobs:
 
       - name: Start / Restart with PM2
         run: |
-          DEPLOY_DIR="/home/${{ secrets.SERVER_USER }}/htdocs/cwprdgen.agentwhistle.cloud"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash << 'ENDSSH'
+              set -e
               DEPLOY_DIR="$HOME/htdocs/cwprdgen.agentwhistle.cloud"
               PM2="$DEPLOY_DIR/pm2_bin/pm2/bin/pm2"
-              cd $DEPLOY_DIR
 
-              # Start or restart
+              echo "=== Node.js version ==="
+              node --version || { echo "❌ node not found in PATH"; which node || true; exit 1; }
+
+              echo "=== Files in deploy dir ==="
+              ls "$DEPLOY_DIR"
+
+              echo "=== server.js exists? ==="
+              test -f "$DEPLOY_DIR/server.js" && echo "✅ server.js found" || { echo "❌ server.js NOT found"; exit 1; }
+
+              echo "=== PM2 binary exists? ==="
+              test -f "$PM2" && echo "✅ PM2 binary found" || { echo "❌ PM2 binary NOT found"; exit 1; }
+
+              cd "$DEPLOY_DIR"
+
               if $PM2 describe plancraft > /dev/null 2>&1; then
+                echo "Restarting existing PM2 process..."
                 $PM2 restart plancraft
               else
+                echo "Starting new PM2 process on port 3000..."
                 PORT=3000 $PM2 start server.js --name plancraft
               fi
 
               $PM2 save
-              echo "✅ Deploy complete on port 3000"
+              echo "=== PM2 process list ==="
+              $PM2 list
+              echo "✅ Deploy complete — app running on port 3000"
           ENDSSH
