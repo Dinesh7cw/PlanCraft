@@ -1,17 +1,9 @@
 import OpenAI from "openai";
-import https from "https";
-
-const httpsAgent = new https.Agent({
-    keepAlive: true,
-    keepAliveMsecs: 10000,
-    timeout: 15 * 60 * 1000,
-});
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
     timeout: 10 * 60 * 1000,
     maxRetries: 2,
-    httpAgent: httpsAgent,
 });
 
 /**
