@@ -1,35 +1,51 @@
-# Node / Next.js
-node_modules/
-.next/
-out/
-build/
-.pnp
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
 .pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# Env files — contains API keys, never commit
-.env
-.env.local
-.env.*
+# testing
+/coverage
 
-# Debug / temp
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
 npm-debug.log*
 yarn-debug.log*
-*.pem
-.DS_Store
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files — contains API keys, never commit
+.env*
+
+# vercel
+.vercel
+
+# typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# temp / test artifacts
 temp_debug_upload.pdf
 test_*.txt
 test_*.zip
 test_extract/
+test_stream_output.txt
 
-# Vercel
-.vercel
+# IDE
 .idx
-
-# Root-level files — only frd-doc-generator/ is tracked
-/*.md
-/*.txt
-/*.json
-/*.js
-/*.ts
