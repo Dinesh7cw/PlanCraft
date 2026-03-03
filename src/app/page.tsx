@@ -28,15 +28,14 @@ export default function Home() {
   const validateFile = (selectedFile: File) => {
     setError(null);
     const validTypes = [
-      "application/pdf",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "application/msword",
       "text/plain",
       "text/markdown",
     ];
 
-    if (!validTypes.includes(selectedFile.type) && !selectedFile.name.endsWith('.pdf') && !selectedFile.name.endsWith('.docx') && !selectedFile.name.endsWith('.txt') && !selectedFile.name.endsWith('.md')) {
-      setError("Please upload a valid PDF, DOCX, TXT, or MD file.");
+    if (!validTypes.includes(selectedFile.type) && !selectedFile.name.endsWith('.docx') && !selectedFile.name.endsWith('.txt') && !selectedFile.name.endsWith('.md')) {
+      setError("Please upload a valid DOCX, TXT, or MD file.");
       return false;
     }
 
@@ -159,7 +158,7 @@ export default function Home() {
         {/* Header */}
         <div className="bg-[var(--primary-color)] p-8 text-center text-[var(--light-color)]">
           <h1 className="text-4xl font-extrabold tracking-tight mb-2">FRD Doc Generator</h1>
-          <p className="text-[var(--cream-color)] font-medium text-lg opacity-90">Upload your FRD (PDF/DOCX) and let AI generate your project docs.</p>
+          <p className="text-[var(--cream-color)] font-medium text-lg opacity-90">Upload your FRD (DOCX/TXT/MD) and let AI generate your project docs.</p>
         </div>
 
         {/* Content Body */}
@@ -221,7 +220,7 @@ export default function Home() {
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
-                    accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+                    accept=".docx,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
                     className="hidden"
                   />
                   <div className="w-24 h-24 mx-auto mb-6 bg-slate-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-sm">
@@ -230,7 +229,6 @@ export default function Home() {
                   <h3 className="text-xl font-bold text-[var(--dark-color)] mb-2 group-hover:text-[var(--secondary-color)] transition-colors">Drag & drop your FRD</h3>
                   <p className="text-[var(--dark-color)]/60">or click to browse files</p>
                   <div className="mt-6 flex items-center justify-center gap-3 text-xs font-semibold text-[var(--dark-color)]/50 uppercase tracking-wider">
-                    <span className="bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">PDF</span>
                     <span className="bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">DOCX</span>
                     <span className="bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">TXT</span>
                     <span className="bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">MD</span>

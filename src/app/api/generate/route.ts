@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     const file = formData.get("file") as File;
 
     if (!file) {
-        return NextResponse.json({ error: "No document provided. Please upload a PDF, DOCX, TXT, or MD file." }, { status: 400 });
+        return NextResponse.json({ error: "No document provided. Please upload a DOCX, TXT, or MD file." }, { status: 400 });
     }
 
     const stream = new ReadableStream({
