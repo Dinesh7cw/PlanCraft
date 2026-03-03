@@ -1,0 +1,107 @@
+import { NextResponse } from "next/server";
+import { extractText } from "@/lib/extractText";
+import { formatAsMarkdown } from "@/lib/formatAsMarkdown";
+import { generateSkills, generateInstructions, generateRules, generateProjectPlan } from "@/lib/generateDocs";
+import { buildZip } from "@/lib/buildZip";
+
+export const maxDuration = 300;
+
+function sseMessage(obj: object): string {
+    return `data: ${JSON.stringify(obj)}\n\n`;
+}
+
+const HEARTBEAT = `data: ${JSON.stringify({ heartbeat: true })}\n\n`;
+
+/** Retry a generate fn up to 3 times on timeout. */
+async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            return await fn();
+        } catch (err) {
+            const msg = String((err as Error)?.message ?? "");
+            const isTimeout = msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("timed out");
+            console.warn(`[${label}] attempt ${attempt} failed: ${msg}`);
+            if (isTimeout && attempt < 3) continue;
+            throw err;
+        }
+    }
+    throw new Error(`${label} failed after 3 attempts`);
+}
+
+export async function POST(req: Request) {
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
+
+    if (!file) {
+        return NextResponse.json({ error: "No document provided. Please upload a PDF, DOCX, TXT, or MD file." }, { status: 400 });
+    }
+
+    const stream = new ReadableStream({
+        async start(controller) {
+            const enc = new TextEncoder();
+            const send = (obj: object) => controller.enqueue(enc.encode(sseMessage(obj)));
+            const ping = () => controller.enqueue(enc.encode(HEARTBEAT));
+
+            // Send heartbeat every 20s so client connection never idles for 60s
+            const heartbeatTimer = setInterval(ping, 20_000);
+
+            try {
+                let frdText = "";
+                try {
+                    frdText = await extractText(file);
+                } catch (err: unknown) {
+                    send({ error: (err as Error).message || "Failed to extract text from file." });
+                    return;
+                }
+
+                const trimmedLength = frdText?.trim().length ?? 0;
+                if (!frdText || trimmedLength < 50) {
+                    send({ error: `Too little readable text (${trimmedLength} chars). Use a file with selectable text or run OCR.` });
+                    return;
+                }
+                if (trimmedLength < 150) {
+                    send({ error: `Very little text (${trimmedLength} chars). Add more FRD content.` });
+                    return;
+                }
+
+                let frdMarkdown = formatAsMarkdown(frdText);
+                if (frdMarkdown.length > 10000) {
+                    frdMarkdown = frdMarkdown.slice(0, 10000) + "\n\n[... FRD truncated ...]";
+                }
+
+                send({ progress: 0, message: "Starting…" });
+
+                const skills = await withRetry(() => generateSkills(frdMarkdown), "skills");
+                send({ progress: 1, message: "Skills done" });
+
+                const instructions = await withRetry(() => generateInstructions(frdMarkdown), "instructions");
+                send({ progress: 2, message: "Instructions done" });
+
+                const rules = await withRetry(() => generateRules(frdMarkdown), "rules");
+                send({ progress: 3, message: "Rules done" });
+
+                const projectPlan = await withRetry(() => generateProjectPlan(frdMarkdown), "projectPlan");
+                send({ progress: 4, message: "Project plan done" });
+
+                const zipBuffer = await buildZip({ skills, instructions, rules, projectPlan });
+                send({ zip: Buffer.from(zipBuffer).toString("base64") });
+
+            } catch (error: unknown) {
+                const err = error as { status?: number; message?: string };
+                console.error("API Generation Error:", error);
+                send({ error: err?.status === 401 ? "Invalid OpenAI API Key. Check .env.local." : err?.message || "An unexpected error occurred." });
+            } finally {
+                clearInterval(heartbeatTimer);
+                controller.close();
+            }
+        },
+    });
+
+    return new NextResponse(stream, {
+        headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    });
+}

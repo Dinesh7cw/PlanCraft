@@ -1,0 +1,28 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+.pnp
+.pnp.*
+
+# Env files — contains API keys, never commit
+.env
+.env.local
+.env.*
+
+# Debug / temp
+npm-debug.log*
+yarn-debug.log*
+*.pem
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+temp_debug_upload.pdf
+test_*.txt
+test_*.zip
+test_extract/
+
+# Vercel
+.vercel
+.idx
