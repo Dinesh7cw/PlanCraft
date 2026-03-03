@@ -69,19 +69,15 @@ export async function POST(req: Request) {
                     frdMarkdown = frdMarkdown.slice(0, 10000) + "\n\n[... FRD truncated ...]";
                 }
 
-                send({ progress: 0, message: "Starting…" });
-
-                const skills = await withRetry(() => generateSkills(frdMarkdown), "skills");
-                send({ progress: 1, message: "Skills done" });
-
-                const instructions = await withRetry(() => generateInstructions(frdMarkdown), "instructions");
-                send({ progress: 2, message: "Instructions done" });
-
-                const rules = await withRetry(() => generateRules(frdMarkdown), "rules");
-                send({ progress: 3, message: "Rules done" });
-
-                const projectPlan = await withRetry(() => generateProjectPlan(frdMarkdown), "projectPlan");
-                send({ progress: 4, message: "Project plan done" });
+                // Run all 4 docs in parallel — 4x faster than sequential
+                send({ progress: 0, message: "Generating all 4 docs in parallel…" });
+                const [skills, instructions, rules, projectPlan] = await Promise.all([
+                    withRetry(() => generateSkills(frdMarkdown),       "skills"),
+                    withRetry(() => generateInstructions(frdMarkdown), "instructions"),
+                    withRetry(() => generateRules(frdMarkdown),        "rules"),
+                    withRetry(() => generateProjectPlan(frdMarkdown),  "projectPlan"),
+                ]);
+                send({ progress: 4, message: "All docs generated!" });
 
                 const zipBuffer = await buildZip({ skills, instructions, rules, projectPlan });
                 send({ zip: Buffer.from(zipBuffer).toString("base64") });
