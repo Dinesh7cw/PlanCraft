@@ -26,3 +26,10 @@ test_extract/
 # Vercel
 .vercel
 .idx
+
+# Root-level files — only frd-doc-generator/ is tracked
+/*.md
+/*.txt
+/*.json
+/*.js
+/*.ts
