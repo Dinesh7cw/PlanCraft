@@ -58,11 +58,9 @@ jobs:
           cp -r .next/static deploy_pkg/.next/static
           cp -r public deploy_pkg/public
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > deploy_pkg/.env.local
+          cp ecosystem.config.cjs deploy_pkg/
           cp scripts/start.sh deploy_pkg/start.sh
           chmod +x deploy_pkg/start.sh
-
-          echo "=== Standalone node_modules packages ==="
-          ls deploy_pkg/node_modules/ | head -30
 
       - name: Setup SSH
         run: |
@@ -80,76 +78,35 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             deploy_pkg/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${DEPLOY_DIR}/ || true
 
-      - name: Start app + diagnostics
+      - name: Deploy with PM2
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash << 'ENDSSH'
             set -e
             DEPLOY_DIR="$HOME/htdocs/cwprdgen.agentwhistle.cloud"
-            LOG="$HOME/plancraft.log"
 
-            echo "=============================="
-            echo "1. SYSTEM INFO"
-            echo "=============================="
-            echo "Node: $(node --version)"
-            echo "User: $(whoami)"
-            echo "Deploy dir: $DEPLOY_DIR"
-            echo "Files in deploy dir:"
-            ls -la "$DEPLOY_DIR" | head -20
-            echo ""
-            echo "node_modules in deploy dir:"
-            ls "$DEPLOY_DIR/node_modules/" 2>/dev/null | head -20 || echo "NO node_modules"
+            echo "=== Installing PM2 (if needed) ==="
+            npm install -g pm2 2>/dev/null || true
+            command -v pm2 || npm install -g pm2
 
-            echo ""
-            echo "=============================="
-            echo "2. ENV CHECK"
-            echo "=============================="
-            if grep -q "OPENAI_API_KEY" "$DEPLOY_DIR/.env.local" 2>/dev/null; then
-              echo ".env.local: API key PRESENT"
-            else
-              echo ".env.local: API key MISSING!"
-            fi
+            echo "=== Stopping old process (nohup/previous) ==="
+            pkill -f "node server.js" 2>/dev/null || true
+            sleep 2
 
-            echo ""
-            echo "=============================="
-            echo "3. NGINX CONFIG"
-            echo "=============================="
-            NGINX_CONF="/etc/nginx/sites-enabled/cwprdgen.agentwhistle.cloud.conf"
-            if [ -f "$NGINX_CONF" ]; then
-              echo "nginx config found:"
-              grep -E "proxy_pass|listen|server_name|try_files|root" "$NGINX_CONF" || echo "no matching lines"
-            else
-              echo "nginx conf NOT at $NGINX_CONF — searching..."
-              find /etc/nginx -name "*cwprdgen*" 2>/dev/null || echo "not found"
-              find /etc/nginx-cp -name "*cwprdgen*" 2>/dev/null || echo "not found in nginx-cp"
-            fi
+            echo "=== Starting app with PM2 ==="
+            cd "$DEPLOY_DIR"
+            pm2 delete plancraft 2>/dev/null || true
+            pm2 start ecosystem.config.cjs
 
-            echo ""
-            echo "=============================="
-            echo "4. KILL OLD + START SERVER"
-            echo "=============================="
-            bash "$DEPLOY_DIR/start.sh"
+            echo "=== Saving PM2 process list ==="
+            pm2 save
 
-            echo ""
-            echo "=============================="
-            echo "5. PORT CHECK"
-            echo "=============================="
+            echo "=== PM2 startup (run on boot) ==="
+            pm2 startup 2>&1 || true
+            echo "If you see a sudo command above, run it once on the server to enable PM2 on reboot."
+
+            echo "=== Health check ==="
             sleep 3
-            ss -tlnp 2>/dev/null | grep 3000 || netstat -tlnp 2>/dev/null | grep 3000 || echo "port 3000 not listening!"
-
-            echo ""
-            echo "=============================="
-            echo "6. HEALTH CHECK"
-            echo "=============================="
-            sleep 3
-            HTTP_CODE=$(curl -s -o /tmp/health_resp.txt -w "%{http_code}" http://localhost:3000/api/health 2>/dev/null || echo "FAILED")
-            echo "HTTP status: $HTTP_CODE"
-            echo "Response body:"
-            cat /tmp/health_resp.txt 2>/dev/null || echo "no response"
-
-            echo ""
-            echo "=============================="
-            echo "7. APP LOG (last 40 lines)"
-            echo "=============================="
-            tail -40 "$LOG" 2>/dev/null || echo "no log file"
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:3000/api/health || echo "Health check failed"
+            pm2 list
           ENDSSH
