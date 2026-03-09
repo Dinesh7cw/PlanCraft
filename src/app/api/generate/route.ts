@@ -30,6 +30,11 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
 }
 
 export async function POST(req: Request) {
+    const key = process.env.OPENAI_API_KEY?.trim();
+    if (!key || key.length < 20) {
+        return NextResponse.json({ error: "OpenAI API key not configured. Add OPENAI_API_KEY to .env.local (local) or GitHub Secrets (server)." }, { status: 500 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
 

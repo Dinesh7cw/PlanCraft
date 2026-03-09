@@ -5,6 +5,11 @@ import { buildZip } from "@/lib/buildZip";
 export const maxDuration = 120;
 
 export async function POST(req: Request) {
+    const key = process.env.OPENAI_API_KEY?.trim();
+    if (!key || key.length < 20) {
+        return NextResponse.json({ error: "OpenAI API key not configured. Add OPENAI_API_KEY to .env.local (local) or GitHub Secrets (server)." }, { status: 500 });
+    }
+
     try {
         const body = await req.json();
         const { frdText, skills, instructions, rules, projectPlan, userMessage } = body;

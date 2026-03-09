@@ -59,6 +59,7 @@ jobs:
           mkdir -p deploy_pkg/public
           [ -d public ] && cp -r public/. deploy_pkg/public/ || true
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > deploy_pkg/.env.local
+          test -s deploy_pkg/.env.local && grep -qE 'OPENAI_API_KEY=.{20}' deploy_pkg/.env.local || { echo "ERROR: OPENAI_API_KEY missing or invalid - add valid key in GitHub Secrets"; exit 1; }
           cp ecosystem.config.cjs deploy_pkg/
           [ -f scripts/start.sh ] && cp scripts/start.sh deploy_pkg/start.sh && chmod +x deploy_pkg/start.sh || true
           echo "=== Deploy package contents ==="
