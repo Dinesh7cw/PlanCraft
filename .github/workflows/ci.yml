@@ -34,8 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    env:
-      DEPLOY_DIR: ${{ secrets.DEPLOY_PATH || '/home/' + secrets.SERVER_USER + '/htdocs/cwprdgen.agentwhistle.cloud' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +76,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            "mkdir -p $DEPLOY_DIR"
+            "mkdir -p /home/${{ secrets.SERVER_USER }}/htdocs/cwprdgen.agentwhistle.cloud"
 
       - name: Deploy via rsync
         run: |
@@ -87,14 +85,13 @@ jobs:
             --no-times \
             --exclude='.well-known' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            deploy_pkg/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:$DEPLOY_DIR/ || true
+            deploy_pkg/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/htdocs/cwprdgen.agentwhistle.cloud/ || true
 
       - name: Deploy with PM2
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "DEPLOY_DIR='$DEPLOY_DIR' bash -s" << 'ENDSSH'
-            DEPLOY_DIR="${DEPLOY_DIR:-$HOME/htdocs/cwprdgen.agentwhistle.cloud}"
-            mkdir -p "$DEPLOY_DIR"
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash << 'ENDSSH'
+            DEPLOY_DIR="$HOME/htdocs/cwprdgen.agentwhistle.cloud"
 
             echo "=== Stopping old process ==="
             pkill -f "node server.js" 2>/dev/null || true
