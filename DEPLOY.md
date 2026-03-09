@@ -1,5 +1,15 @@
 # PlanCraft — Server Deploy
 
+## ⚠️ Nginx / Apache — Proxy to Node
+
+If static files (fonts, CSS, JS) return **500**, your web server may be serving them directly instead of proxying to Node. **Proxy ALL requests** to Node on port 3000.
+
+See `nginx.conf.example` for the correct Nginx config. Key: `location /` must proxy to `http://127.0.0.1:3000` — do NOT serve `/_next/static/*` from disk.
+
+**Quick test on server:** `curl -I http://localhost:3000/_next/static/chunks/` — if this returns 200, Node is fine; the issue is the reverse proxy.
+
+---
+
 ## After `git push` — Run on VPS
 
 ```bash

@@ -85,7 +85,7 @@ jobs:
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/deploy.tar.gz
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            "cd /home/${{ secrets.SERVER_USER }}/htdocs && rm -rf cwprdgen.agentwhistle.cloud.new && mkdir cwprdgen.agentwhistle.cloud.new && cd cwprdgen.agentwhistle.cloud.new && tar xzf /tmp/deploy.tar.gz && cd .. && rm -rf cwprdgen.agentwhistle.cloud && mv cwprdgen.agentwhistle.cloud.new cwprdgen.agentwhistle.cloud && rm /tmp/deploy.tar.gz"
+            "cd /home/${{ secrets.SERVER_USER }}/htdocs && rm -rf cwprdgen.agentwhistle.cloud.new && mkdir cwprdgen.agentwhistle.cloud.new && cd cwprdgen.agentwhistle.cloud.new && tar xzf /tmp/deploy.tar.gz && chmod -R 755 . && cd .. && rm -rf cwprdgen.agentwhistle.cloud && mv cwprdgen.agentwhistle.cloud.new cwprdgen.agentwhistle.cloud && rm /tmp/deploy.tar.gz"
 
       - name: Deploy with PM2
         run: |
@@ -107,6 +107,10 @@ jobs:
 
             echo "=== PM2 startup (run on boot) ==="
             npx pm2 startup 2>&1 || true
+
+            echo "=== Verify static files exist ==="
+            ls -la .next/static/chunks/ 2>/dev/null | head -5 || echo "No chunks dir"
+            ls -la .next/static/media/ 2>/dev/null | head -3 || echo "No media dir"
 
             echo "=== Health check ==="
             sleep 3
