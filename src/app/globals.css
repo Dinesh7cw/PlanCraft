@@ -22,13 +22,55 @@
     --cream-color: #fff8eb;
     --lightgrey-color: #d3d3d3;
     
-    --background: var(--light-color);
-    --foreground: var(--dark-color);
+    /* App dark theme — brand only */
+    --app-bg: #080808;
+    --app-surface: #0f0f0f;
+    --app-surface-elevated: #161616;
+    --app-border: rgba(5, 131, 216, 0.15);
+    --app-border-strong: rgba(5, 131, 216, 0.3);
+    --app-text: #f8fafc;
+    --app-text-muted: #94a3b8;
+    --app-text-dim: #64748b;
+    --app-success: var(--secondary-color);
+    --app-warning: #f59e0b;
+    --app-error: var(--primary-color);
+    
+    --background: var(--app-bg);
+    --foreground: var(--app-text);
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
   }
 
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  }
+
+  /* Scrollbar — thin, subtle */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(5, 131, 216, 0.4) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(5, 131, 216, 0.4);
+    border-radius: 3px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color);
   }
 }

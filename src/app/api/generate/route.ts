@@ -3,6 +3,7 @@ import { extractText } from "@/lib/extractText";
 import { formatAsMarkdown } from "@/lib/formatAsMarkdown";
 import { generateSkills, generateInstructions, generateRules, generateProjectPlan } from "@/lib/generateDocs";
 import { buildZip } from "@/lib/buildZip";
+import { validateDocs } from "@/lib/validateDocs";
 
 export const maxDuration = 300;
 
@@ -79,6 +80,12 @@ export async function POST(req: Request) {
                 ]);
                 send({ progress: 4, message: "All docs generated!" });
 
+                // Quality check — auto-run after generation
+                const qualityReport = validateDocs({ skills, instructions, rules, projectPlan });
+                send({ quality: qualityReport });
+
+                // Send docs + frdText first (for chat/regenerate), then zip
+                send({ docs: { skills, instructions, rules, projectPlan }, frdText: frdMarkdown });
                 const zipBuffer = await buildZip({ skills, instructions, rules, projectPlan });
                 send({ zip: Buffer.from(zipBuffer).toString("base64") });
 

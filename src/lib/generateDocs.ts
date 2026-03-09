@@ -47,12 +47,13 @@ Any feature, module, or requirement that the FRD marks as Phase 2, Phase 3, "fut
 
 async function streamedCreate(
     messages: OpenAI.Chat.ChatCompletionMessageParam[],
-    jsonMode = false
+    jsonMode = false,
+    maxTokens = 4096
 ): Promise<string> {
     const stream = await openai.chat.completions.create({
         model: "gpt-4o",
         stream: true,
-        max_tokens: 4096,
+        max_tokens: maxTokens,
         messages,
         ...(jsonMode ? { response_format: { type: "json_object" as const } } : {}),
     });
@@ -93,10 +94,16 @@ Identify which category this project belongs to (can be multiple):
 - Other
 
 STEP 2 — BEFORE LISTING ANY SKILL, APPLY THIS CHECK:
-For EVERY technology you are about to list — ask yourself: "Is this EXPLICITLY stated or DIRECTLY implied by the FRD?"
+For EVERY technology you are about to list — ask yourself: "Is this EXPLICITLY stated in the FRD?"
 - If YES → include it.
 - If NO or UNSURE → DO NOT include it. Write nothing rather than guess.
 This means: if FRD has zero mention of Python → do not write Python. If FRD has zero mention of Redis → do not write Redis. Zero exceptions.
+
+STRICT RULE — NO INVENTED TECH, NO VAGUE WORDS:
+Only list technologies explicitly stated in the FRD tech stack section.
+If a technology is not directly mentioned in the FRD, DO NOT include it.
+FORBIDDEN in your output: "potentially", "implied", "may be used", "could be used", "possibly", "not explicitly mentioned", "likely used".
+Write only concrete statements. If uncertain — exclude it entirely.
 
 STEP 3 — EXTRACT ALL SKILLS:
 
@@ -108,7 +115,7 @@ Generate skills.md with these EXACT sections:
 [State the detected project type(s) clearly]
 
 ## All Languages & Runtimes
-[List EVERY language and runtime found in or implied by the FRD — e.g. TypeScript, PHP, Python, Rust, Swift. For each: name, version if mentioned, why it's needed in this project]
+[List EVERY language and runtime explicitly stated in the FRD — e.g. TypeScript, PHP, Python, Rust, Swift. For each: name, version if mentioned, why it's needed in this project. Do NOT use the word "implied".]
 
 ## Frontend Skills
 [Only if project has a frontend. For each skill: name | proficiency level (Basic/Intermediate/Advanced) | specific usage in THIS project]
@@ -137,12 +144,14 @@ Example format:
 - guzzlehttp/guzzle — HTTP client for Pinecone API calls
 
 ## DevOps & Deployment
-[List deployment target from FRD or implied. e.g. Vercel, AWS Lambda, VPS, Docker, WordPress hosting. Include any CI/CD, environment management needed]
+[List deployment target explicitly stated in FRD. e.g. Vercel, AWS Lambda, VPS, Docker, WordPress hosting. Include any CI/CD, environment management needed. Do NOT use "implied" or "could be".]
 
 ## Skill Summary Table
 | Skill / Technology | Level Required | Why Needed in This Project |
 |--------------------|---------------|----------------------------|
 [Fill every row with actual skills from FRD — minimum 10 rows]
+
+FINAL CHECK: Before outputting, search your draft for: "implied", "potentially", "may be used", "could be used", "possibly". If found — remove or rephrase. Output must contain ZERO vague words.
 `.trim(),
         },
         { role: "user", content: `FRD Content:\n\n${frdText}` },
@@ -178,15 +187,19 @@ Example:
 - Pinecone account + API key (pinecone.io)
 - MongoDB Atlas account OR local MongoDB 7+
 
-## Environment Variables
-[List ALL environment variables the project needs. Use a .env.example block. Derive variable names from the services and auth methods mentioned in the FRD.]
+## Environment Variables / Config Storage
+Config storage MUST match the project type:
+- WordPress Plugin → wp_options table via get_option() / update_option(). Never .env.
+- Node.js / Next.js → .env.local file. Never hardcode.
+- Python → .env file + python-dotenv. Never hardcode.
+- Mobile App → Platform secure storage (Keychain / Keystore). Never plaintext.
+- Chrome Extension → chrome.storage.sync or .env at build time. Never expose in content scripts.
+
+[List ALL environment variables or config keys the project needs. Use the correct format for this project type.]
 \`\`\`env
 # Example — derive actual names from FRD
 OPENAI_API_KEY=sk-...
 DATABASE_URL=mongodb+srv://...
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-JWT_SECRET=...
 \`\`\`
 
 ## Project Setup — Step by Step
@@ -231,7 +244,14 @@ Example:
 [Describe the exact auth flow from FRD — login steps, token storage, role checks. If role-based access is in FRD, list every role and what they can/cannot do]
 
 ## Business Logic Rules
-[List ALL validation rules, mandatory fields, status flows, conditional logic stated in FRD. This is critical — Claude must know every rule to implement correctly]
+Business Logic Rules MUST be extracted directly from the FRD functional requirements.
+Include specifically:
+- Every mandatory field validation rule stated in FRD
+- Every status flow / lifecycle (e.g. Draft → Active → Completed)
+- Every role-based permission rule (who can do what)
+- Every conditional logic rule (e.g. "cannot publish unless X and Y are filled")
+- Every data constraint (e.g. "chunk size: 500-1000 tokens with overlap")
+Write each rule as a specific, testable statement. Never write generic rules.
 Example:
 - Campaign cannot be published unless: Campaign Name + Platform + Budget + Start Date all filled
 - Status flow: Draft → Scheduled → Active → Paused → Completed → Failed
@@ -263,6 +283,23 @@ export async function generateRules(frdText: string): Promise<string> {
 You are a senior software engineer and tech lead. Your job is to generate a 'rules.json' file so complete that an AI coding assistant follows these rules automatically while writing every line of code — no exceptions.
 
 ${MASTER_RULE}
+
+CRITICAL — RULES MUST MATCH PROJECT TYPE:
+Every rule, pattern, and convention must match the project type detected from the FRD.
+
+- WordPress Plugin (PHP): Use wp_options for config storage, register_rest_route() for APIs, add_action()/add_filter() for hooks, guzzlehttp/guzzle for HTTP calls, WP_Error for errors. NEVER use: .env files, process.env, Promise.all(), .next/, npm patterns. forbidden_commits: [".env", "node_modules/", "vendor/", "*.log"]
+
+- Node.js / Next.js API: Use .env.local for secrets, Express/Next.js API routes, Promise.all() for parallel calls, Zod for validation. NEVER use: PHP patterns, wp_options, composer. forbidden_commits: [".env", ".env.local", "node_modules/", ".next/", "dist/"]
+
+- Python API (FastAPI/Flask): Use .env + python-dotenv, Pydantic for validation, asyncio.gather() for parallel calls, pip/requirements.txt. NEVER use: npm, composer, Node.js patterns. forbidden_commits: [".env", "__pycache__/", "venv/", ".venv/"]
+
+- React / Next.js Frontend: Use .env.local, React hooks, Tailwind, fetch/axios. NEVER use: PHP patterns, Python patterns.
+
+- Mobile App (React Native / Flutter): Use AsyncStorage or SecureStore for secrets, platform-specific navigation, native APIs.
+
+- Chrome Extension: Use chrome.storage API, background service workers, manifest.json rules. NEVER use: server-side patterns.
+
+Always match every rule to the actual project type from the FRD.
 
 Generate a valid JSON object with ALL of these keys. Derive values from the FRD — do not use generic defaults:
 
@@ -299,20 +336,20 @@ Generate a valid JSON object with ALL of these keys. Derive values from the FRD 
     "general": {
       "max_function_length": "50 lines",
       "max_file_length": "300 lines",
-      "no_hardcoded_values": "all config in .env or constants file"
+      "no_hardcoded_values": "match project type — WordPress: wp_options; Node.js: .env.local; Python: .env"
     }
   },
 
   "architecture_rules": {
-    "api_calls_location": "only in API route files or service layer — never in UI components",
+    "api_calls_location": "match project type — WordPress: register_rest_route; Node.js: API routes; Python: FastAPI routes",
     "business_logic_location": "service layer — not in controllers or UI",
     "ai_calls_location": "only in dedicated AI service file — never inline",
     "database_calls_location": "only in repository/model layer",
-    "env_variables": "only accessed via a central config file — never process.env inline"
+    "env_variables": "match project type — WordPress: get_option/update_option; Node.js: .env.local; Python: .env + python-dotenv"
   },
 
   "security_rules": {
-    "api_keys": "stored in .env only — never hardcoded, never committed to git, never exposed to client",
+    "api_keys": "match project type — WordPress: wp_options; Node.js: .env.local; Python: .env — never hardcoded, never exposed to client",
     "authentication_method": "exact method from FRD e.g. JWT | OAuth2 | Session | API Key",
     "input_validation": "all user inputs validated with schema (Zod/Joi/Yup for JS, Pydantic for Python, WP sanitize functions for PHP) before processing",
     "rate_limiting": "value from FRD if mentioned, else '20 requests per minute per user'",
@@ -351,7 +388,7 @@ Generate a valid JSON object with ALL of these keys. Derive values from the FRD 
   },
 
   "performance_rules": {
-    "parallel_calls": "use Promise.all() for independent async operations — never sequential await chains",
+    "parallel_calls": "match project type — Node.js: Promise.all(); Python: asyncio.gather(); PHP: avoid — use sequential or WP Cron",
     "caching": "derive from FRD — e.g. cache AI responses for 24h, cache DB queries for 5min",
     "batch_processing": "derive from FRD — e.g. batch Pinecone upserts in groups of 100",
     "file_size_limit": "derive from FRD or default to 10MB",
@@ -376,9 +413,10 @@ Generate a valid JSON object with ALL of these keys. Derive values from the FRD 
   },
 
   "do_not_build": [
-    "IMPORTANT: This array must contain ONLY deferred FEATURES from the FRD Out of Scope section",
-    "NEVER add technologies that are actively used in this project to this array",
-    "tech_not_in_frd is only for tech genuinely absent from FRD — not for tech that IS being used",
+    "MUST contain ONLY features listed in the FRD Out of Scope section",
+    "NEVER add technologies to do_not_build if they are actively used in the project",
+    "tech_not_in_frd is only for technologies genuinely absent from the FRD",
+    "Cross-check: every item in do_not_build must be traceable to the FRD Out of Scope section",
     "e.g. CORRECT: 'Automated campaign optimization — Phase 2'",
     "e.g. WRONG: 'Redis — not in FRD' when Redis IS used for job queues in this project",
     "List each deferred feature from out_of_scope.phase_1_exclusions here with phase label"
@@ -450,7 +488,8 @@ If all required tech is covered in skills.md — leave this section empty or omi
 
 CRITICAL RULES FOR PHASES:
 - Include EVERY phase mentioned in the FRD — Phase 1, Phase 2, Phase 3, etc. NEVER omit a phase.
-- Phase 1 tasks = build now. Phase 2+ tasks = marked ⚠️ FUTURE — DO NOT BUILD IN PHASE 1.
+- Phase 1 tasks: mark as "🔨 Build Now". Phase 2+ tasks: mark as "⚠️ FUTURE — DO NOT BUILD IN PHASE 1".
+- Never omit future phases. Never include future phase tasks without the warning label.
 - NEVER mix Phase 2+ tasks into Phase 1 task list.
 - File/folder names in tasks MUST exactly match FRD naming.
 - If FRD has no explicit phases — create logical phases (Setup → Core Features → Polish).
@@ -465,6 +504,8 @@ CRITICAL RULES FOR PHASES:
 **Scope boundary:** [exact features listed in FRD for this phase only]
 
 #### Tasks
+For any process that has multiple steps in the FRD (sync pipelines, data flows, generation workflows, publish workflows) — break into individual tasks, one per step. Never combine a multi-step process into a single task. Each task must have: task name, file to create/edit, specific logic to implement.
+
 [For Phase 1: list every task to build now]
 [For Phase 2+: list every task but prefix each with ⚠️ FUTURE:]
 - [ ] [Exact task name from FRD] — [what to build, which file, what logic]
@@ -483,7 +524,11 @@ CRITICAL RULES FOR PHASES:
 |---|------|-------|----------------------|------------|
 
 ## Key Files to Create
-[Every file that needs to be created, with its exact path and purpose]
+Key Files table MUST include EVERY file needed to build the project.
+For each module mentioned in the FRD — list at minimum: main logic file, any template/UI file, any config/constants file.
+Do not group multiple modules into one file entry.
+Minimum 8 files. If project has 5+ modules — list each module's files separately.
+
 | File Path | Purpose |
 |-----------|---------|
 
@@ -502,4 +547,116 @@ CRITICAL RULES FOR PHASES:
         },
         { role: "user", content: `FRD Content:\n\n${frdText}` },
     ]);
+}
+
+// ─────────────────────────────────────────────
+// REGENERATE — Apply user feedback to existing docs
+// ─────────────────────────────────────────────
+export type DocsPayload = {
+    skills: string;
+    instructions: string;
+    rules: string;
+    projectPlan: string;
+};
+
+/** Parse @filename mentions from user feedback. Returns which files to update. */
+function parseTargetFiles(userFeedback: string): ("skills" | "instructions" | "rules" | "projectPlan")[] {
+    const targets: ("skills" | "instructions" | "rules" | "projectPlan")[] = [];
+    if (/\@skills\.md/i.test(userFeedback)) targets.push("skills");
+    if (/\@instructions\.md/i.test(userFeedback)) targets.push("instructions");
+    if (/\@rules\.json/i.test(userFeedback)) targets.push("rules");
+    if (/\@project-plan\.md/i.test(userFeedback)) targets.push("projectPlan");
+    return targets.length > 0 ? targets : ["skills", "instructions", "rules", "projectPlan"];
+}
+
+export async function regenerateDocs(
+    frdText: string,
+    currentDocs: DocsPayload,
+    userFeedback: string
+): Promise<DocsPayload> {
+    const targetFiles = parseTargetFiles(userFeedback);
+    const targetList = targetFiles.map((f) => (f === "rules" ? "rules.json" : f === "projectPlan" ? "project-plan.md" : f + ".md")).join(", ");
+    const keepUnchanged = targetFiles.length < 4
+        ? `CRITICAL: The user mentioned specific files with @. ONLY update: ${targetList}. For all other files, return the EXACT same content as provided — do not modify them at all.`
+        : "";
+
+    // ALWAYS pass FULL content for ALL 4 files — AI needs complete context to apply user feedback correctly to every file
+    const skillsContent = currentDocs.skills;
+    const instructionsContent = currentDocs.instructions;
+    const rulesContent = currentDocs.rules;
+    const projectPlanContent = currentDocs.projectPlan;
+
+    const result = await streamedCreate(
+        [
+            {
+                role: "system",
+                content: `You are a senior technical architect. The user has generated 4 project docs (skills.md, instructions.md, rules.json, project-plan.md) from an FRD. They now want changes based on their feedback.
+
+${MASTER_RULE}
+
+PRIMARY DIRECTIVE — USER FEEDBACK IS MANDATORY:
+The user's feedback is the #1 priority. Whatever they request MUST appear in your output.
+- Apply changes to EVERY file where the feedback is relevant — skills.md, instructions.md, rules.json, project-plan.md.
+- If they say "add Redis" → add Redis to skills.md, instructions.md (prereqs/env), rules.json (tech_stack), project-plan.md (tech summary) — wherever it belongs.
+- If they say "Fix Phase 2" → fix Phase 2 in project-plan.md and any other file that mentions Phase 2.
+- Do NOT ignore, generalize, or skip any part of their request.
+- Do NOT apply changes to only one file when the feedback affects multiple files.
+- Apply their changes exactly as they described, across ALL relevant files.
+
+${keepUnchanged}
+
+If user did NOT @mention any file — apply their feedback to ALL 4 files wherever the change is relevant (skills, instructions, rules, project-plan).
+
+OUTPUT: Return a valid JSON object with exactly these keys:
+{
+  "skills": "full updated skills.md content",
+  "instructions": "full updated instructions.md content",
+  "rules": "full updated rules.json content (valid JSON string)",
+  "projectPlan": "full updated project-plan.md content"
+}
+
+- Output ONLY the JSON. No markdown fences. No preamble.
+- If the feedback affects only one file, still return all 4 — update the affected one, keep others EXACTLY as provided.
+- rules must be valid JSON (escape quotes in strings).
+- Preserve all MASTER_RULE and GAP FIXES in your updates.`,
+            },
+            {
+                role: "user",
+                content: `USER FEEDBACK — APPLY THESE CHANGES (this is the primary instruction):
+${userFeedback}
+
+---
+FRD Content:\n${frdText.slice(0, 8000)}
+
+---
+CURRENT DOCS:
+
+skills.md:
+${skillsContent}
+
+---
+instructions.md:
+${instructionsContent}
+
+---
+rules.json:
+${rulesContent}
+
+---
+project-plan.md:
+${projectPlanContent}`,
+            },
+        ],
+        true,
+        16384 // Larger output for full 4-doc JSON
+    );
+
+    const parsed = JSON.parse(result) as DocsPayload;
+    // Only use AI output for @mentioned files; keep others unchanged
+    return {
+        skills: targetFiles.includes("skills") ? (parsed.skills ?? currentDocs.skills) : currentDocs.skills,
+        instructions: targetFiles.includes("instructions") ? (parsed.instructions ?? currentDocs.instructions) : currentDocs.instructions,
+        rules: targetFiles.includes("rules") ? (parsed.rules ?? currentDocs.rules) : currentDocs.rules,
+        projectPlan: targetFiles.includes("projectPlan") ? (parsed.projectPlan ?? currentDocs.projectPlan) : currentDocs.projectPlan,
+    };
 }

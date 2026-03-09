@@ -44,8 +44,14 @@ next-env.d.ts
 temp_debug_upload.pdf
 test_*.txt
 test_*.zip
+test_*.js
 test_extract/
 test_stream_output.txt
+dea.md
+instructions.md
+project-plan.md
+skills.md
+frd-doc-generator/
 
 # IDE
 .idx
