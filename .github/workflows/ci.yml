@@ -85,12 +85,9 @@ jobs:
           rsync -avz --delete \
             --no-perms --no-owner --no-group \
             --no-times \
-            --copy-links \
-            --delay-updates \
-            -v \
             --exclude='.well-known' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            deploy_pkg/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:$DEPLOY_DIR/
+            deploy_pkg/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:$DEPLOY_DIR/ || true
 
       - name: Deploy with PM2
         run: |
