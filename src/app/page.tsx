@@ -459,7 +459,7 @@ export default function Home() {
               disabled={isRegenerating || !docs}
             />
             <button
-              onClick={handleRegenerate}
+              onClick={() => handleRegenerate()}
               disabled={!chatMessage.trim() || isRegenerating || !docs}
               className="shrink-0 px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
               style={{ backgroundColor: "var(--secondary-color)" }}
