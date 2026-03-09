@@ -85,28 +85,24 @@ jobs:
             set -e
             DEPLOY_DIR="$HOME/htdocs/cwprdgen.agentwhistle.cloud"
 
-            echo "=== Installing PM2 (if needed) ==="
-            npm install -g pm2 2>/dev/null || true
-            command -v pm2 || npm install -g pm2
-
             echo "=== Stopping old process (nohup/previous) ==="
             pkill -f "node server.js" 2>/dev/null || true
             sleep 2
 
-            echo "=== Starting app with PM2 ==="
+            echo "=== Starting app with PM2 (npx, no global install) ==="
             cd "$DEPLOY_DIR"
-            pm2 delete plancraft 2>/dev/null || true
-            pm2 start ecosystem.config.cjs
+            npx pm2 delete plancraft 2>/dev/null || true
+            npx pm2 start ecosystem.config.cjs
 
             echo "=== Saving PM2 process list ==="
-            pm2 save
+            npx pm2 save
 
             echo "=== PM2 startup (run on boot) ==="
-            pm2 startup 2>&1 || true
+            npx pm2 startup 2>&1 || true
             echo "If you see a sudo command above, run it once on the server to enable PM2 on reboot."
 
             echo "=== Health check ==="
             sleep 3
             curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:3000/api/health || echo "Health check failed"
-            pm2 list
+            npx pm2 list
           ENDSSH
