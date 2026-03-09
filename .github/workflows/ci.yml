@@ -78,14 +78,11 @@ jobs:
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
             "mkdir -p /home/${{ secrets.SERVER_USER }}/htdocs/cwprdgen.agentwhistle.cloud"
 
-      - name: Deploy via rsync
+      - name: Deploy via tar+ssh
         run: |
-          rsync -avz --delete \
-            --no-perms --no-owner --no-group \
-            --no-times \
-            --exclude='.well-known' \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            deploy_pkg/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/htdocs/cwprdgen.agentwhistle.cloud/ || true
+          tar czf - -C deploy_pkg . | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "mkdir -p /home/${{ secrets.SERVER_USER }}/htdocs/cwprdgen.agentwhistle.cloud && cd /home/${{ secrets.SERVER_USER }}/htdocs/cwprdgen.agentwhistle.cloud && find . -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null; tar xzf -"
 
       - name: Deploy with PM2
         run: |
