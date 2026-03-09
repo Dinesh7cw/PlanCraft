@@ -78,11 +78,14 @@ jobs:
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
             "mkdir -p /home/${{ secrets.SERVER_USER }}/htdocs/cwprdgen.agentwhistle.cloud"
 
-      - name: Deploy via tar+ssh
+      - name: Deploy via tar+scp+ssh
         run: |
-          tar czf - -C deploy_pkg . | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+          tar czf deploy.tar.gz -C deploy_pkg .
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deploy.tar.gz \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/tmp/deploy.tar.gz
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            "mkdir -p /home/${{ secrets.SERVER_USER }}/htdocs/cwprdgen.agentwhistle.cloud && cd /home/${{ secrets.SERVER_USER }}/htdocs/cwprdgen.agentwhistle.cloud && find . -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null; tar xzf -"
+            "cd /home/${{ secrets.SERVER_USER }}/htdocs && rm -rf cwprdgen.agentwhistle.cloud.new && mkdir cwprdgen.agentwhistle.cloud.new && cd cwprdgen.agentwhistle.cloud.new && tar xzf /tmp/deploy.tar.gz && cd .. && rm -rf cwprdgen.agentwhistle.cloud && mv cwprdgen.agentwhistle.cloud.new cwprdgen.agentwhistle.cloud && rm /tmp/deploy.tar.gz"
 
       - name: Deploy with PM2
         run: |
