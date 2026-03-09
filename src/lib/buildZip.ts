@@ -13,7 +13,7 @@ export async function buildZip(docs: {
     try {
         const parsed = JSON.parse(docs.rules);
         rulesContent = JSON.stringify(parsed, null, 2);
-    } catch (e) {
+    } catch {
         // If it's not valid JSON, just use the raw string
     }
 
